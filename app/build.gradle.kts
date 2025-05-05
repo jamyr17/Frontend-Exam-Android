@@ -2,6 +2,8 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    //Google Service Plugin
+    id("com.google.gms.google-services")
 }
 
 android {
@@ -59,6 +61,14 @@ dependencies {
     implementation("androidx.compose.material:material-icons-extended:1.6.0")
     implementation("androidx.compose.material3:material3:1.1.0")
     implementation("androidx.compose.material:material-icons-extended:1.5.0")
+
+    implementation("com.squareup.okhttp3:logging-interceptor:4.10.0")
+
+    // FireBase
+
+    implementation(platform("com.google.firebase:firebase-bom:33.12.0"))
+    implementation("com.google.firebase:firebase-messaging:24.1.1")
+    implementation("com.google.firebase:firebase-analytics:22.4.0")
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

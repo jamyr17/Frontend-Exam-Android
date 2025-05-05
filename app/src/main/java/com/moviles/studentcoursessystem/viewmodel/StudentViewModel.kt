@@ -8,8 +8,6 @@ import com.moviles.studentcoursessystem.network.RetrofitInstance
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
-import okhttp3.MediaType.Companion.toMediaTypeOrNull
-import okhttp3.RequestBody.Companion.toRequestBody
 
 /**
  * ViewModel for managing student data operations
@@ -65,10 +63,13 @@ class StudentViewModel : ViewModel() {
         viewModelScope.launch {
             try {
                 _isLoading.value = true
-                _students.value = RetrofitInstance.apiStudent.getStudentsByCourseId(courseId)
+                Log.d("StudentViewModel", "Fetching students for course ID: $courseId")
+                val result = RetrofitInstance.apiStudent.getStudentsByCourseId(courseId)
+                _students.value = result
                 Log.i("StudentViewModel", "Fetched ${_students.value.size} students for course $courseId")
             } catch (e: Exception) {
                 Log.e("StudentViewModel", "Error fetching students for course $courseId: ${e.message}")
+                _students.value = emptyList() // Reset to empty list on error
             } finally {
                 _isLoading.value = false
             }
@@ -84,6 +85,7 @@ class StudentViewModel : ViewModel() {
             viewModelScope.launch {
                 try {
                     _isLoading.value = true
+                    Log.d("StudentViewModel", "Attempting to delete student with ID: $id")
                     val response = RetrofitInstance.apiStudent.deleteStudent(id)
 
                     if (response.isSuccessful) {
@@ -122,28 +124,28 @@ class StudentViewModel : ViewModel() {
         viewModelScope.launch {
             try {
                 _isLoading.value = true
+                // Debugging info
+                Log.d("StudentViewModel", "Adding student: $name, email: $email, phone: $phone, courseId: $courseId")
 
-                // Convert parameters to RequestBody objects
-                val nameBody = name.toRequestBody("text/plain".toMediaTypeOrNull())
-                val emailBody = email.toRequestBody("text/plain".toMediaTypeOrNull())
-                val phoneBody = phone.toRequestBody("text/plain".toMediaTypeOrNull())
-                val courseIdBody = courseId.toString().toRequestBody("text/plain".toMediaTypeOrNull())
-
-                // Make API call
-                val newStudent = RetrofitInstance.apiStudent.addStudent(
-                    name = nameBody,
-                    email = emailBody,
-                    phone = phoneBody,
-                    courseId = courseIdBody
+                // Create a Student object instead of using RequestBody
+                val student = Student(
+                    id = null, // ID will be assigned by the server
+                    name = name,
+                    email = email,
+                    phone = phone,
+                    courseId = courseId
                 )
+
+                // Make API call with the Student object
+                val newStudent = RetrofitInstance.apiStudent.addStudent(student)
 
                 // Update the local state
                 _students.value = _students.value + newStudent
-                Log.i("StudentViewModel", "Successfully added new student with ID: ${newStudent.id}")
+                Log.i("StudentViewModel", "Successfully added new student with ID: ${newStudent.id}, courseId: ${newStudent.courseId}")
 
                 onSuccess()
             } catch (e: Exception) {
-                Log.e("StudentViewModel", "Error adding student: ${e.message}")
+                Log.e("StudentViewModel", "Error adding student: ${e.message}", e)
                 onError(e.message ?: "Unknown error")
             } finally {
                 _isLoading.value = false
@@ -165,6 +167,7 @@ class StudentViewModel : ViewModel() {
         viewModelScope.launch {
             try {
                 _isLoading.value = true
+                Log.d("StudentViewModel", "Updating student with ID: ${student.id}, courseId: ${student.courseId}")
 
                 val updatedStudent = RetrofitInstance.apiStudent.updateStudent(student.id, student)
 
@@ -176,7 +179,7 @@ class StudentViewModel : ViewModel() {
                 Log.i("StudentViewModel", "Successfully updated student with ID: ${updatedStudent.id}")
                 onSuccess()
             } catch (e: Exception) {
-                Log.e("StudentViewModel", "Error updating student: ${e.message}")
+                Log.e("StudentViewModel", "Error updating student: ${e.message}", e)
                 onError(e.message ?: "Unknown error")
             } finally {
                 _isLoading.value = false

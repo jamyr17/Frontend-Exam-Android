@@ -1,6 +1,11 @@
 package com.moviles.studentcoursessystem
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.content.Context
+import android.os.Build
 import android.os.Bundle
 import android.util.Log
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
@@ -16,11 +21,11 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.moviles.studentcoursessystem.models.Course
 import com.moviles.studentcoursessystem.models.Student
 import com.moviles.studentcoursessystem.viewmodel.StudentViewModel
 
@@ -31,6 +36,7 @@ import com.moviles.studentcoursessystem.viewmodel.StudentViewModel
 class StudentsActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        createNotificationChannel(this)
 
         // Extract course data passed from MainActivity
         val courseId = intent.getIntExtra("COURSE_ID", -1)
@@ -38,9 +44,13 @@ class StudentsActivity : ComponentActivity() {
 
         if (courseId == -1) {
             Log.e("StudentsActivity", "Invalid course ID received")
+            Toast.makeText(this, "Error: Invalid course ID", Toast.LENGTH_LONG).show()
             finish()
             return
         }
+
+        // Debug log to confirm the courseId was received correctly
+        Log.d("StudentsActivity", "Started with courseId: $courseId, courseName: $courseName")
 
         setContent {
             MaterialTheme {
@@ -69,6 +79,7 @@ fun StudentManagementScreen(
 ) {
     val students by viewModel.students.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
+    val context = LocalContext.current
 
     // UI state
     var showAddDialog by remember { mutableStateOf(false) }
@@ -78,13 +89,14 @@ fun StudentManagementScreen(
 
     // Load students for the specific course when entering the screen
     LaunchedEffect(courseId) {
+        Log.d("StudentManagementScreen", "Fetching students for course ID: $courseId")
         viewModel.fetchStudentsForCourse(courseId)
     }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Students in $courseName") },
+                title = { Text("Estudiantes de $courseName") },
                 navigationIcon = {
                     IconButton(onClick = onBackPressed) {
                         Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
@@ -104,7 +116,7 @@ fun StudentManagementScreen(
                 },
                 containerColor = MaterialTheme.colorScheme.primary
             ) {
-                Icon(Icons.Filled.Add, contentDescription = "Add Student")
+                Icon(Icons.Filled.Add, contentDescription = "Agregar estudiante")
             }
         }
     ) { paddingValues ->
@@ -124,7 +136,7 @@ fun StudentManagementScreen(
                     .padding(paddingValues),
                 contentAlignment = Alignment.Center
             ) {
-                Text("No students enrolled in this course")
+                Text("No hay estudiantes asociados a este curso")
             }
         } else {
             LazyColumn(
@@ -135,7 +147,7 @@ fun StudentManagementScreen(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 contentPadding = PaddingValues(vertical = 16.dp)
             ) {
-                items(students.filter { it.courseId == courseId }) { student ->
+                items(students) { student ->
                     StudentCard(
                         student = student,
                         onEditClick = {
@@ -151,32 +163,58 @@ fun StudentManagementScreen(
             }
         }
 
-        // Add/Edit Student Dialog
-        if ((showAddDialog || showEditDialog) && (showEditDialog && selectedStudent != null || showAddDialog)) {
+        // Add Student Dialog
+        if (showAddDialog) {
+            StudentFormDialog(
+                student = null,
+                courseId = courseId,  // Pass the courseId explicitly
+                onDismiss = { showAddDialog = false },
+                onSave = { student ->
+                    Log.d("StudentManagementScreen", "Adding student with courseId: $courseId")
+                    viewModel.addStudent(
+                        name = student.name,
+                        email = student.email,
+                        phone = student.phone,
+                        courseId = courseId,  // Use the courseId from the parent screen
+                        onSuccess = {
+                            showAddDialog = false
+                            // Show success message
+                            Toast.makeText(context, "Estudiante agregado correctamente", Toast.LENGTH_SHORT).show()
+                            // Refresh the student list after adding
+                            viewModel.fetchStudentsForCourse(courseId)
+                        },
+                        onError = { error ->
+                            Log.e("StudentsActivity", "Error adding student: $error")
+                            Toast.makeText(context, "Error: $error", Toast.LENGTH_LONG).show()
+                        }
+                    )
+                }
+            )
+        }
+
+        // Edit Student Dialog
+        if (showEditDialog && selectedStudent != null) {
             StudentFormDialog(
                 student = selectedStudent,
-                courseId = courseId,
-                onDismiss = {
-                    showAddDialog = false
-                    showEditDialog = false
-                },
+                courseId = courseId,  // Pass the courseId explicitly
+                onDismiss = { showEditDialog = false },
                 onSave = { student ->
-                    if (showAddDialog) {
-                        viewModel.addStudent(
-                            name = student.name,
-                            email = student.email,
-                            phone = student.phone,
-                            courseId = courseId,
-                            onSuccess = { showAddDialog = false },
-                            onError = { error -> Log.e("StudentsActivity", "Error adding student: $error") }
-                        )
-                    } else {
-                        viewModel.updateStudent(
-                            student = student,
-                            onSuccess = { showEditDialog = false },
-                            onError = { error -> Log.e("StudentsActivity", "Error updating student: $error") }
-                        )
-                    }
+                    // Ensure the updated student keeps the same courseId
+                    val studentWithCourseId = student.copy(courseId = courseId)
+                    viewModel.updateStudent(
+                        student = studentWithCourseId,
+                        onSuccess = {
+                            showEditDialog = false
+                            // Show success message
+                            Toast.makeText(context, "Estudiante actualizado correctamente", Toast.LENGTH_SHORT).show()
+                            // Refresh the student list after updating
+                            viewModel.fetchStudentsForCourse(courseId)
+                        },
+                        onError = { error ->
+                            Log.e("StudentsActivity", "Error updating student: $error")
+                            Toast.makeText(context, "Error: $error", Toast.LENGTH_LONG).show()
+                        }
+                    )
                 }
             )
         }
@@ -185,16 +223,18 @@ fun StudentManagementScreen(
         if (showDeleteDialog && selectedStudent != null) {
             AlertDialog(
                 onDismissRequest = { showDeleteDialog = false },
-                title = { Text("Confirm Deletion") },
-                text = { Text("Are you sure you want to remove ${selectedStudent?.name} from this course?") },
+                title = { Text("Confirmar eliminación") },
+                text = { Text("Estás seguro que deseas eliminar a ${selectedStudent?.name} de este curso?") },
                 confirmButton = {
                     Button(
                         onClick = {
                             viewModel.deleteStudent(selectedStudent?.id)
                             showDeleteDialog = false
+                            // Refresh the student list after deletion
+                            viewModel.fetchStudentsForCourse(courseId)
                         }
                     ) {
-                        Text("Delete")
+                        Text("Eliminar")
                     }
                 },
                 dismissButton = {
@@ -205,7 +245,7 @@ fun StudentManagementScreen(
                             contentColor = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     ) {
-                        Text("Cancel")
+                        Text("Cancelar")
                     }
                 }
             )
@@ -241,28 +281,21 @@ fun StudentCard(
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )
-                Text(
-                    text = student.email,
-                    style = MaterialTheme.typography.bodyMedium
-                )
-                Text(
-                    text = "📱 ${student.phone}",
-                    style = MaterialTheme.typography.bodySmall
-                )
+                // Email and phone removed as requested
             }
 
             Row {
                 IconButton(onClick = onEditClick) {
                     Icon(
                         Icons.Filled.Edit,
-                        contentDescription = "Edit",
+                        contentDescription = "Editar",
                         tint = MaterialTheme.colorScheme.primary
                     )
                 }
                 IconButton(onClick = onDeleteClick) {
                     Icon(
                         Icons.Filled.Delete,
-                        contentDescription = "Delete",
+                        contentDescription = "Eliminar",
                         tint = MaterialTheme.colorScheme.error
                     )
                 }
@@ -289,9 +322,15 @@ fun StudentFormDialog(
     var phone by remember { mutableStateOf(student?.phone ?: "") }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
+    // For debugging purposes - keep this but don't display to user
+    Log.d("StudentFormDialog", "Dialog opened with courseId: $courseId")
+    if (isEdit) {
+        Log.d("StudentFormDialog", "Editing student with ID: ${student?.id}, current courseId: ${student?.courseId}")
+    }
+
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (isEdit) "Edit Student" else "Add Student") },
+        title = { Text(if (isEdit) "Editar estudiante" else "Agregar estudiante") },
         text = {
             Column(
                 modifier = Modifier
@@ -312,7 +351,7 @@ fun StudentFormDialog(
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
-                    label = { Text("Name") },
+                    label = { Text("Nombre") },
                     modifier = Modifier.fillMaxWidth(),
                     isError = name.isBlank() && errorMessage != null
                 )
@@ -320,7 +359,7 @@ fun StudentFormDialog(
                 OutlinedTextField(
                     value = email,
                     onValueChange = { email = it },
-                    label = { Text("Email") },
+                    label = { Text("Correo") },
                     modifier = Modifier.fillMaxWidth(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                     isError = email.isBlank() && errorMessage != null
@@ -329,11 +368,13 @@ fun StudentFormDialog(
                 OutlinedTextField(
                     value = phone,
                     onValueChange = { phone = it },
-                    label = { Text("Phone") },
+                    label = { Text("Número telefónico") },
                     modifier = Modifier.fillMaxWidth(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                     isError = phone.isBlank() && errorMessage != null
                 )
+
+                // Course ID display removed - keeping the logic but not displaying it
             }
         },
         confirmButton = {
@@ -345,15 +386,19 @@ fun StudentFormDialog(
                             name = name.trim(),
                             email = email.trim(),
                             phone = phone.trim(),
-                            courseId = courseId
+                            courseId = courseId  // Ensure we're using the passed courseId
                         )
+
+                        // Log the student being saved
+                        Log.d("StudentFormDialog", "Saving student with courseId: $courseId")
+
                         onSave(updatedStudent)
                     } else {
-                        errorMessage = "Please fill all required fields"
+                        errorMessage = "Porfavor llenar todos los campos con datos correctos"
                     }
                 }
             ) {
-                Text(if (isEdit) "Update" else "Save")
+                Text(if (isEdit) "Actualizar" else "Guardar")
             }
         },
         dismissButton = {
@@ -364,7 +409,7 @@ fun StudentFormDialog(
                     contentColor = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             ) {
-                Text("Cancel")
+                Text("Cancelar")
             }
         }
     )
@@ -381,3 +426,20 @@ private fun validateStudentInputs(
     return name.isNotBlank() && email.isNotBlank() && phone.isNotBlank() &&
             android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()
 }
+
+fun createNotificationChannel(context: Context) {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        val channelId = "event_reminder_channel"
+        val channelName = "Event Reminders"
+        val importance = NotificationManager.IMPORTANCE_DEFAULT
+
+        val channel = NotificationChannel(channelId, channelName, importance).apply {
+            description = "Notifies users about upcoming events"
+        }
+
+        val notificationManager =
+            context.getSystemService(NotificationManager::class.java)
+        notificationManager?.createNotificationChannel(channel)
+    }
+}
+
