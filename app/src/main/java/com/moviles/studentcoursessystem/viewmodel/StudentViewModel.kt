@@ -41,6 +41,23 @@ class StudentViewModel : ViewModel() {
     }
 
     /**
+     * Fetch for an specific student
+     */
+    fun fetchStudent(id: Int) {
+        viewModelScope.launch {
+            try {
+                _isLoading.value = true
+                val student = RetrofitInstance.apiStudent.getStudentById(id)
+                Log.i("StudentViewModel", "Fetched student: ${student.name} from API")
+            } catch (e: Exception) {
+                Log.e("StudentViewModel", "Error fetching students: ${e.message}")
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    /**
      * Fetch students for a specific course
      * @param courseId ID of the course to fetch students for
      */
@@ -48,9 +65,7 @@ class StudentViewModel : ViewModel() {
         viewModelScope.launch {
             try {
                 _isLoading.value = true
-                val allStudents = RetrofitInstance.apiStudent.getStudents()
-                // Filter students by courseId
-                _students.value = allStudents.filter { it.courseId == courseId }
+                _students.value = RetrofitInstance.apiStudent.getStudentsByCourseId(courseId)
                 Log.i("StudentViewModel", "Fetched ${_students.value.size} students for course $courseId")
             } catch (e: Exception) {
                 Log.e("StudentViewModel", "Error fetching students for course $courseId: ${e.message}")

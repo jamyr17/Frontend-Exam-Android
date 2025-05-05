@@ -9,6 +9,9 @@ interface ApiStudentService {
     @GET("api/student")
     suspend fun getStudents(): List<Student>
 
+    @GET("api/student/course/{id}")
+    suspend fun getStudentsByCourseId(@Path("id") id: Int?): List<Student>
+
     @Multipart
     @POST("api/student")
     suspend fun addStudent(
