@@ -32,6 +32,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import coil.compose.SubcomposeAsyncImage
 import coil.request.ImageRequest
+import com.moviles.studentcoursessystem.common.Constants.IMAGES_BASE_URL
 import com.moviles.studentcoursessystem.models.Course
 import com.moviles.studentcoursessystem.viewmodel.CourseViewModel
 
@@ -240,45 +241,9 @@ fun CourseCard(
         elevation = CardDefaults.elevatedCardElevation(defaultElevation = 4.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            // Image section with improved error handling and placeholder
-            course.imageUrl?.let { imageUrl ->
-                if (imageUrl.isNotBlank()) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(150.dp)
-                    ) {
-                        // Using SubcomposeAsyncImage for better control over loading/error states
-                        SubcomposeAsyncImage(
-                            model = ImageRequest.Builder(LocalContext.current)
-                                .data(imageUrl)
-                                .crossfade(true)
-                                .build(),
-                            contentDescription = "Course image",
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Crop,
-                            loading = {
-                                Box(
-                                    modifier = Modifier.fillMaxSize(),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    CircularProgressIndicator()
-                                }
-                            },
-                            error = {
-                                Box(
-                                    modifier = Modifier.fillMaxSize(),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text("Error loading image")
-                                    Log.e("CourseCard", "Error loading image: $imageUrl")
-                                }
-                            }
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(12.dp))
-                }
-            }
+            // Image section
+            RemoteImage(IMAGES_BASE_URL + course.imageUrl)
+            Spacer(modifier = Modifier.height(12.dp))
 
             // Course details
             Text(
@@ -331,6 +296,18 @@ fun CourseCard(
             }
         }
     }
+}
+
+@Composable
+fun RemoteImage(imageUrl: String) {
+    AsyncImage(
+        model = imageUrl,
+        contentDescription = null,
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(150.dp), // Set fixed height
+        contentScale = ContentScale.Fit // Crop to fit the box
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
