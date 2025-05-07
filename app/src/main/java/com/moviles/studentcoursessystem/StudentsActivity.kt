@@ -1,4 +1,8 @@
 package com.moviles.studentcoursessystem
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.content.Context
+import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
@@ -20,6 +24,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.google.firebase.messaging.FirebaseMessaging
 import com.moviles.studentcoursessystem.models.Course
 import com.moviles.studentcoursessystem.models.Student
 import com.moviles.studentcoursessystem.viewmodel.StudentViewModel
@@ -31,6 +36,8 @@ import com.moviles.studentcoursessystem.viewmodel.StudentViewModel
 class StudentsActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        createNotificationChannel(this)
+        subscribeToTopic()
 
         // Extract course data passed from MainActivity
         val courseId = intent.getIntExtra("COURSE_ID", -1)
@@ -84,7 +91,7 @@ fun StudentManagementScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Students in $courseName") },
+                title = { Text("Estudiantes en $courseName") },
                 navigationIcon = {
                     IconButton(onClick = onBackPressed) {
                         Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
@@ -104,7 +111,7 @@ fun StudentManagementScreen(
                 },
                 containerColor = MaterialTheme.colorScheme.primary
             ) {
-                Icon(Icons.Filled.Add, contentDescription = "Add Student")
+                Icon(Icons.Filled.Add, contentDescription = "Agregar estudiante")
             }
         }
     ) { paddingValues ->
@@ -124,7 +131,7 @@ fun StudentManagementScreen(
                     .padding(paddingValues),
                 contentAlignment = Alignment.Center
             ) {
-                Text("No students enrolled in this course")
+                Text("No hy estudiantes matriculados a este curso")
             }
         } else {
             LazyColumn(
@@ -186,7 +193,7 @@ fun StudentManagementScreen(
             AlertDialog(
                 onDismissRequest = { showDeleteDialog = false },
                 title = { Text("Confirm Deletion") },
-                text = { Text("Are you sure you want to remove ${selectedStudent?.name} from this course?") },
+                text = { Text("Estás seguro que deseas eliminar a ${selectedStudent?.name} de este curso?") },
                 confirmButton = {
                     Button(
                         onClick = {
@@ -241,28 +248,20 @@ fun StudentCard(
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )
-                Text(
-                    text = student.email,
-                    style = MaterialTheme.typography.bodyMedium
-                )
-                Text(
-                    text = "📱 ${student.phone}",
-                    style = MaterialTheme.typography.bodySmall
-                )
             }
 
             Row {
                 IconButton(onClick = onEditClick) {
                     Icon(
                         Icons.Filled.Edit,
-                        contentDescription = "Edit",
+                        contentDescription = "Editar",
                         tint = MaterialTheme.colorScheme.primary
                     )
                 }
                 IconButton(onClick = onDeleteClick) {
                     Icon(
                         Icons.Filled.Delete,
-                        contentDescription = "Delete",
+                        contentDescription = "Eliminar",
                         tint = MaterialTheme.colorScheme.error
                     )
                 }
@@ -291,7 +290,7 @@ fun StudentFormDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (isEdit) "Edit Student" else "Add Student") },
+        title = { Text(if (isEdit) "Editar Estudiante" else "Agregar Estudiante") },
         text = {
             Column(
                 modifier = Modifier
@@ -312,7 +311,7 @@ fun StudentFormDialog(
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
-                    label = { Text("Name") },
+                    label = { Text("Nombre") },
                     modifier = Modifier.fillMaxWidth(),
                     isError = name.isBlank() && errorMessage != null
                 )
@@ -320,7 +319,7 @@ fun StudentFormDialog(
                 OutlinedTextField(
                     value = email,
                     onValueChange = { email = it },
-                    label = { Text("Email") },
+                    label = { Text("Correo") },
                     modifier = Modifier.fillMaxWidth(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                     isError = email.isBlank() && errorMessage != null
@@ -329,7 +328,7 @@ fun StudentFormDialog(
                 OutlinedTextField(
                     value = phone,
                     onValueChange = { phone = it },
-                    label = { Text("Phone") },
+                    label = { Text("Número telefónico") },
                     modifier = Modifier.fillMaxWidth(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                     isError = phone.isBlank() && errorMessage != null
@@ -349,7 +348,7 @@ fun StudentFormDialog(
                         )
                         onSave(updatedStudent)
                     } else {
-                        errorMessage = "Please fill all required fields"
+                        errorMessage = "Porfavor llenar todos los campos de manera correctca"
                     }
                 }
             ) {
@@ -380,4 +379,35 @@ private fun validateStudentInputs(
 ): Boolean {
     return name.isNotBlank() && email.isNotBlank() && phone.isNotBlank() &&
             android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()
+}
+
+
+// Functions to create the notification after create an student
+
+
+fun createNotificationChannel(context: Context) {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        val channelId = "event_reminder_channel"
+        val channelName = "Event Reminders"
+        val importance = NotificationManager.IMPORTANCE_DEFAULT
+
+        val channel = NotificationChannel(channelId, channelName, importance).apply {
+            description = "Notifies users about upcoming events"
+        }
+
+        val notificationManager =
+            context.getSystemService(NotificationManager::class.java)
+        notificationManager?.createNotificationChannel(channel)
+    }
+}
+
+fun subscribeToTopic() {
+    FirebaseMessaging.getInstance().subscribeToTopic("event_notifications")
+        .addOnCompleteListener { task ->
+            var msg = "Subscription successful"
+            if (!task.isSuccessful) {
+                msg = "Subscription failed"
+            }
+            Log.d("FCM", msg)
+        }
 }

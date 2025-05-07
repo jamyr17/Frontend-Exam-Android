@@ -1,7 +1,6 @@
 package com.moviles.studentcoursessystem.network
 
 import com.moviles.studentcoursessystem.models.Student
-import okhttp3.RequestBody
 import retrofit2.Response
 import retrofit2.http.*
 
@@ -13,16 +12,10 @@ interface ApiStudentService {
     suspend fun getStudentsByCourseId(@Path("id") id: Int?): List<Student>
 
     @GET("api/student/{id}")
-    suspend fun getStudentById(@Path("id") id: Int?): Student
-
-    @Multipart
+    suspend fun getStudentById(@Path("id") id:Int?): Student
+  
     @POST("api/student")
-    suspend fun addStudent(
-        @Part("Name") name: RequestBody,
-        @Part("Email") email: RequestBody,
-        @Part("Phone") phone: RequestBody,
-        @Part("CourseId") courseId: RequestBody
-    ): Student
+    suspend fun addStudent(@Body student: Student): Student
 
     @PUT("api/student/{id}")
     suspend fun updateStudent(@Path("id") id: Int?, @Body studentDto: Student): Student
