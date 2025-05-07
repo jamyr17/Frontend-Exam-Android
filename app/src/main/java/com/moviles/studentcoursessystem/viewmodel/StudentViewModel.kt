@@ -1,6 +1,8 @@
 package com.moviles.studentcoursessystem.viewmodel
 
 import android.util.Log
+import androidx.lifecycle.LiveData
+import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.moviles.studentcoursessystem.models.Student
@@ -15,11 +17,17 @@ import kotlinx.coroutines.launch
  */
 class StudentViewModel : ViewModel() {
 
+    private val _selectedStudent = MutableStateFlow<Student?>(null)
+    val selectedStudent: StateFlow<Student?> = _selectedStudent
+
     private val _students = MutableStateFlow<List<Student>>(emptyList())
-    val students: StateFlow<List<Student>> get() = _students
+    val students: StateFlow<List<Student>> = _students
 
     private val _isLoading = MutableStateFlow(false)
-    val isLoading: StateFlow<Boolean> get() = _isLoading
+    val isLoading: StateFlow<Boolean> = _isLoading
+
+    private val _courseName = MutableStateFlow<String?>(null)
+    val courseName: StateFlow<String?> = _courseName
 
     /**
      * Fetch all students from the API
@@ -46,6 +54,11 @@ class StudentViewModel : ViewModel() {
             try {
                 _isLoading.value = true
                 val student = RetrofitInstance.apiStudent.getStudentById(id)
+                _selectedStudent.value = student
+
+                val course = RetrofitInstance.apiCourse.getCourseById(student.courseId)
+                _courseName.value = course.name
+
                 Log.i("StudentViewModel", "Fetched student: ${student.name} from API")
             } catch (e: Exception) {
                 Log.e("StudentViewModel", "Error fetching students: ${e.message}")
