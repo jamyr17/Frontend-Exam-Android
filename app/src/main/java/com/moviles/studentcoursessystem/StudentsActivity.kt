@@ -369,7 +369,7 @@ fun StudentFormDialog(
                         )
                         onSave(updatedStudent)
                     } else {
-                        errorMessage = "Porfavor llenar todos los campos de manera correctca"
+                        errorMessage = "Por favor llenar todos los campos de manera correcta"
                     }
                 }
             ) {
