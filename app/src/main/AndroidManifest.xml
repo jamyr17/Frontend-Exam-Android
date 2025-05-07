@@ -39,6 +39,15 @@
                 android:value=".MainActivity" />
         </activity>
 
+        <activity
+            android:name=".StudentDetailActivity"
+            android:exported="false"
+            android:parentActivityName=".StudentsActivity">
+            <meta-data
+                android:name="android.support.PARENT_ACTIVITY"
+                android:value=".StudentsActivity" />
+        </activity>
+
         <service
             android:name=".services.MessagingService"
             android:exported="false">

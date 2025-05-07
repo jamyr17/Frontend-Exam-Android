@@ -2,11 +2,13 @@ package com.moviles.studentcoursessystem
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
+import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -20,9 +22,11 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat.startActivity
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.google.firebase.messaging.FirebaseMessaging
 import com.moviles.studentcoursessystem.models.Course
@@ -82,6 +86,7 @@ fun StudentManagementScreen(
     var showEditDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
     var selectedStudent by remember { mutableStateOf<Student?>(null) }
+    val context = LocalContext.current
 
     // Load students for the specific course when entering the screen
     LaunchedEffect(courseId) {
@@ -145,6 +150,20 @@ fun StudentManagementScreen(
                 items(students.filter { it.courseId == courseId }) { student ->
                     StudentCard(
                         student = student,
+                        onClick = {
+                            try {
+                                // Debugging logs
+                                Log.d("StudentsActivity", "Navigating to StudentDetailActivity with student Id: ${student.id}")
+
+                                // Navigate to StudentDetailActivity when a student is clicked
+                                val intent = Intent(context, StudentDetailActivity::class.java).apply {
+                                    putExtra("STUDENT_ID", student.id ?: -1) // Add null safety
+                                }
+                                context.startActivity(intent)
+                            } catch (e: Exception) {
+                                Log.e("MainActivity", "Error navigating to StudentsActivity", e)
+                            }
+                        },
                         onEditClick = {
                             selectedStudent = student
                             showEditDialog = true
@@ -226,13 +245,15 @@ fun StudentManagementScreen(
 @Composable
 fun StudentCard(
     student: Student,
+    onClick: () -> Unit,
     onEditClick: () -> Unit,
     onDeleteClick: () -> Unit
 ) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 4.dp),
+            .padding(vertical = 4.dp)
+            .clickable { onClick() },
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Row(
