@@ -10,6 +10,9 @@ interface ApiCourseService {
     @GET("api/course")
     suspend fun getCourses(): List<Course>
 
+    @GET("api/course/{id}")
+    suspend fun getCourseById(@Path("id") id:Int?): Course
+
     @Multipart
     @POST("api/course")
     suspend fun addCourse(

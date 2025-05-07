@@ -42,6 +42,20 @@ class CourseViewModel : ViewModel() {
         }
     }
 
+    suspend fun fetchCourse(id: Int): Course {
+        _isLoading.value = true
+        return try {
+            val course = RetrofitInstance.apiCourse.getCourseById(id)
+            Log.i("CourseViewModel", "Fetched course: ${course.name} from API")
+            course
+        } catch (e: Exception) {
+            Log.e("CourseViewModel", "Error fetching courses: ${e.message}")
+            throw e
+        } finally {
+            _isLoading.value = false
+        }
+    }
+
     // Delete a course
     fun deleteEvent(courseId: Int?) {
         courseId?.let { id ->
