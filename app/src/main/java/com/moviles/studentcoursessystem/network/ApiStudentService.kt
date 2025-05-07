@@ -13,8 +13,7 @@ interface ApiStudentService {
 
     @GET("api/student/{id}")
     suspend fun getStudentById(@Path("id") id:Int?): Student
-
-    // Change from multipart to JSON
+  
     @POST("api/student")
     suspend fun addStudent(@Body student: Student): Student
 
