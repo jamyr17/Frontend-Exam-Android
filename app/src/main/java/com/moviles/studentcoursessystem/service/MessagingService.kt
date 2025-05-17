@@ -1,4 +1,4 @@
-package com.moviles.studentcoursessystem.services
+package com.moviles.studentcoursessystem.service
 
 import android.annotation.SuppressLint
 import android.util.Log

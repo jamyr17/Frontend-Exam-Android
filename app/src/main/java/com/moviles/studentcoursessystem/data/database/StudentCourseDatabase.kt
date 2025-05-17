@@ -1,15 +1,15 @@
-package com.moviles.studentcoursessystem.data.local
+package com.moviles.studentcoursessystem.data.database
 
 import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
-import com.moviles.studentcoursessystem.dao.CourseDao
-import com.moviles.studentcoursessystem.dao.StudentDao
-import com.moviles.studentcoursessystem.models.Course
-import com.moviles.studentcoursessystem.models.Student
+import com.moviles.studentcoursessystem.data.database.dao.CourseDao
+import com.moviles.studentcoursessystem.data.database.dao.StudentDao
+import com.moviles.studentcoursessystem.data.database.entity.CourseEntity
+import com.moviles.studentcoursessystem.data.database.entity.StudentEntity
 
-@Database(entities = [Student::class, Course::class], version = 1, exportSchema = false)
+@Database(entities = [StudentEntity::class, CourseEntity::class], version = 1, exportSchema = false)
 abstract class StudentCourseDatabase : RoomDatabase() {
     abstract fun studentDao(): StudentDao
     abstract fun courseDao(): CourseDao

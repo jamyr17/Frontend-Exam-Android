@@ -1,4 +1,4 @@
-package com.moviles.studentcoursessystem
+package com.moviles.studentcoursessystem.ui.activity
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
@@ -26,11 +26,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import androidx.core.content.ContextCompat.startActivity
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.google.firebase.messaging.FirebaseMessaging
-import com.moviles.studentcoursessystem.models.Course
-import com.moviles.studentcoursessystem.models.Student
+import com.moviles.studentcoursessystem.model.Student
 import com.moviles.studentcoursessystem.viewmodel.StudentViewModel
 
 /**
@@ -88,6 +86,18 @@ fun StudentManagementScreen(
     var selectedStudent by remember { mutableStateOf<Student?>(null) }
     val context = LocalContext.current
 
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    // Detectar cambios de fuente de datos (CACHE o API)
+    LaunchedEffect(Unit) {
+        viewModel.dataSource.collect { source ->
+            source?.let {
+                snackbarHostState.showSnackbar("Datos cargados desde: $it")
+                viewModel.clearDataSource()
+            }
+        }
+    }
+
     // Load students for the specific course when entering the screen
     LaunchedEffect(courseId) {
         viewModel.fetchStudentsForCourse(courseId)
@@ -108,6 +118,7 @@ fun StudentManagementScreen(
                 )
             )
         },
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         floatingActionButton = {
             FloatingActionButton(
                 onClick = {
