@@ -1,21 +1,34 @@
 package com.moviles.studentcoursessystem.viewmodel
 
+import android.annotation.SuppressLint
+import android.app.Application
 import android.util.Log
-import androidx.lifecycle.LiveData
-import androidx.lifecycle.MutableLiveData
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.moviles.studentcoursessystem.models.Student
+import com.moviles.studentcoursessystem.model.Student
 import com.moviles.studentcoursessystem.network.RetrofitInstance
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import androidx.lifecycle.AndroidViewModel
+import com.moviles.studentcoursessystem.common.NetworkUtils.hasNetwork
+import com.moviles.studentcoursessystem.data.database.StudentCourseDatabase
+import com.moviles.studentcoursessystem.data.database.entity.StudentEntity
+import com.moviles.studentcoursessystem.network.ResponseOriginTracker
 
 /**
- * ViewModel for managing student data operations
- * Handles fetching, adding, updating, and deleting students
+ * ViewModel responsible for managing student-related data operations
+ * Ensures synchronization between remote API and local Room database
  */
-class StudentViewModel : ViewModel() {
+class StudentViewModel(application: Application) : AndroidViewModel(application) {
+
+    @SuppressLint("StaticFieldLeak")
+    private val context = application.applicationContext
+    private val db = StudentCourseDatabase.getDatabase(context)
+    private val studentDao = db.studentDao()
+    private val courseDao = db.courseDao()
+
+    private val _dataSource = MutableStateFlow<String?>(null)
+    val dataSource: StateFlow<String?> = _dataSource
 
     private val _selectedStudent = MutableStateFlow<Student?>(null)
     val selectedStudent: StateFlow<Student?> = _selectedStudent
@@ -30,38 +43,51 @@ class StudentViewModel : ViewModel() {
     val courseName: StateFlow<String?> = _courseName
 
     /**
-     * Fetch all students from the API
-     */
-    fun fetchStudents() {
-        viewModelScope.launch {
-            try {
-                _isLoading.value = true
-                _students.value = RetrofitInstance.apiStudent.getStudents()
-                Log.i("StudentViewModel", "Fetched ${_students.value.size} students from API")
-            } catch (e: Exception) {
-                Log.e("StudentViewModel", "Error fetching students: ${e.message}")
-            } finally {
-                _isLoading.value = false
-            }
-        }
-    }
-
-    /**
-     * Fetch for an specific student
+     * Fetch a specific student by ID.
+     * Tries remote API first, then local DB as fallback.
+     * Updates local DB on successful remote fetch.
      */
     fun fetchStudent(id: Int) {
         viewModelScope.launch {
             try {
                 _isLoading.value = true
-                val student = RetrofitInstance.apiStudent.getStudentById(id)
-                _selectedStudent.value = student
+                var studentEntity: StudentEntity? = null
 
-                val course = RetrofitInstance.apiCourse.getCourseById(student.courseId)
-                _courseName.value = course.name
+                if (hasNetwork(context)) {
+                    // Fetch from API
+                    val result = RetrofitInstance.apiStudent.getStudentById(id)
+                    studentEntity = result.id?.let {
+                        StudentEntity(
+                            id = it,
+                            name = result.name,
+                            email = result.email,
+                            phone = result.phone,
+                            courseId = result.courseId
+                        )
+                    }
 
-                Log.i("StudentViewModel", "Fetched student: ${student.name} from API")
+                    // Synchronize local DB: replace existing entry with fresh data
+                    studentEntity?.let {
+                        studentDao.insertStudent(it)
+                    }
+
+                    _dataSource.value = ResponseOriginTracker.source
+                } else {
+                    _dataSource.value = "LOCAL"
+                }
+
+                // Load student from local DB (either fresh or fallback)
+                val localStudent = studentDao.getStudentById(id)
+                _selectedStudent.value = localStudent?.toStudent()
+
+                // Load course name from local DB
+                val courseName = localStudent?.courseId?.let { courseDao.getCourseById(it)?.name }
+                _courseName.value = courseName ?: ""
+
+                Log.i("StudentViewModel", "Fetched student: ${_selectedStudent.value?.name}")
             } catch (e: Exception) {
-                Log.e("StudentViewModel", "Error fetching students: ${e.message}")
+                Log.e("StudentViewModel", "Error fetching student: ${e.message}")
+                _dataSource.value = "ERROR"
             } finally {
                 _isLoading.value = false
             }
@@ -69,20 +95,45 @@ class StudentViewModel : ViewModel() {
     }
 
     /**
-     * Fetch students for a specific course
-     * @param courseId ID of the course to fetch students for
+     * Fetch all students for a given course.
+     * Tries remote API first, then local DB as fallback.
+     * Updates local DB on successful remote fetch.
      */
     fun fetchStudentsForCourse(courseId: Int) {
         viewModelScope.launch {
             try {
                 _isLoading.value = true
-                Log.d("StudentViewModel", "Fetching students for course ID: $courseId")
-                val result = RetrofitInstance.apiStudent.getStudentsByCourseId(courseId)
-                _students.value = result
+
+                if (hasNetwork(context)) {
+                    // Fetch from API and map to entities
+                    val apiStudents = RetrofitInstance.apiStudent.getStudentsByCourseId(courseId)
+                    val studentEntities = apiStudents.map {
+                        StudentEntity(
+                            id = it.id!!,
+                            name = it.name,
+                            email = it.email,
+                            phone = it.phone,
+                            courseId = courseId
+                        )
+                    }
+
+                    // Synchronize local DB: replace all students of the course
+                    studentDao.deleteStudentsByCourse(courseId)
+                    studentDao.insertStudents(studentEntities)
+
+                    _dataSource.value = ResponseOriginTracker.source
+                } else {
+                    _dataSource.value = "LOCAL"
+                }
+
+                // Load students from local DB regardless of network status
+                val localStudents = studentDao.getStudentsByCourse(courseId)
+                _students.value = localStudents.map { it.toStudent() }
+
                 Log.i("StudentViewModel", "Fetched ${_students.value.size} students for course $courseId")
             } catch (e: Exception) {
                 Log.e("StudentViewModel", "Error fetching students for course $courseId: ${e.message}")
-                _students.value = emptyList() // Reset to empty list on error
+                _students.value = emptyList()
             } finally {
                 _isLoading.value = false
             }
@@ -90,41 +141,46 @@ class StudentViewModel : ViewModel() {
     }
 
     /**
-     * Delete a student from the system
-     * @param studentId ID of the student to delete
+     * Delete a student by ID.
+     * Attempts remote API call and updates local DB accordingly.
+     * Updates UI state upon success.
      */
     fun deleteStudent(studentId: Int?) {
-        studentId?.let { id ->
-            viewModelScope.launch {
-                try {
-                    _isLoading.value = true
-                    Log.d("StudentViewModel", "Attempting to delete student with ID: $id")
-                    val response = RetrofitInstance.apiStudent.deleteStudent(id)
+        if (studentId == null) {
+            Log.e("StudentViewModel", "Cannot delete student: ID is null")
+            return
+        }
 
-                    if (response.isSuccessful) {
-                        // Update local state to remove the deleted student
-                        _students.value = _students.value.filter { it.id != studentId }
-                        Log.i("StudentViewModel", "Successfully deleted student with ID: $id")
-                    } else {
-                        Log.e("StudentViewModel", "Error deleting student: ${response.code()}")
-                    }
-                } catch (e: Exception) {
-                    Log.e("StudentViewModel", "Error deleting student: ${e.message}")
-                } finally {
-                    _isLoading.value = false
+        viewModelScope.launch {
+            try {
+                _isLoading.value = true
+                Log.d("StudentViewModel", "Deleting student with ID: $studentId")
+
+                val response = if (hasNetwork(context)) {
+                    RetrofitInstance.apiStudent.deleteStudent(studentId)
+                } else {
+                    null // No network, skip remote delete
                 }
+
+                if (response?.isSuccessful == true || response == null) {
+                    // Delete locally regardless of network status to keep UI consistent
+                    studentDao.deleteStudent(studentId)
+                    _students.value = _students.value.filter { it.id != studentId }
+                    Log.i("StudentViewModel", "Student deleted locally and remotely (if possible): $studentId")
+                } else {
+                    Log.e("StudentViewModel", "Failed to delete student remotely: ${response.code()}")
+                }
+            } catch (e: Exception) {
+                Log.e("StudentViewModel", "Error deleting student: ${e.message}")
+            } finally {
+                _isLoading.value = false
             }
-        } ?: Log.e("StudentViewModel", "Cannot delete student: ID is null")
+        }
     }
 
     /**
-     * Add a new student to the system
-     * @param name Student's name
-     * @param email Student's email
-     * @param phone Student's phone number
-     * @param courseId ID of the course to associate with the student
-     * @param onSuccess Callback for successful addition
-     * @param onError Callback for error handling
+     * Add a new student.
+     * Tries remote API first; upon success, adds to local DB and UI state.
      */
     fun addStudent(
         name: String,
@@ -137,28 +193,35 @@ class StudentViewModel : ViewModel() {
         viewModelScope.launch {
             try {
                 _isLoading.value = true
-                // Debugging info
-                Log.d("StudentViewModel", "Adding student: $name, email: $email, phone: $phone, courseId: $courseId")
+                Log.d("StudentViewModel", "Adding student: $name, $email, $phone, course $courseId")
 
-                // Create a Student object instead of using RequestBody
-                val student = Student(
-                    id = null, // ID will be assigned by the server
+                if (!hasNetwork(context)) {
+                    onError("No internet connection")
+                    return@launch
+                }
+
+                // Create student object for API call (id=null since server assigns it)
+                val newStudent = Student(
+                    id = null,
                     name = name,
                     email = email,
                     phone = phone,
                     courseId = courseId
                 )
 
-                // Make API call with the Student object
-                val newStudent = RetrofitInstance.apiStudent.addStudent(student)
+                // Call API to add student
+                val addedStudent = RetrofitInstance.apiStudent.addStudent(newStudent)
 
-                // Update the local state
-                _students.value = _students.value + newStudent
-                Log.i("StudentViewModel", "Successfully added new student with ID: ${newStudent.id}, courseId: ${newStudent.courseId}")
+                // Insert into local DB
+                studentDao.insertStudent(addedStudent.toEntity())
 
+                // Update UI state list
+                _students.value = _students.value + addedStudent
+
+                Log.i("StudentViewModel", "Student added with ID: ${addedStudent.id}")
                 onSuccess()
             } catch (e: Exception) {
-                Log.e("StudentViewModel", "Error adding student: ${e.message}", e)
+                Log.e("StudentViewModel", "Error adding student: ${e.message}")
                 onError(e.message ?: "Unknown error")
             } finally {
                 _isLoading.value = false
@@ -167,10 +230,8 @@ class StudentViewModel : ViewModel() {
     }
 
     /**
-     * Update an existing student
-     * @param student Updated student object
-     * @param onSuccess Callback for successful update
-     * @param onError Callback for error handling
+     * Update an existing student.
+     * Tries remote API first; upon success, updates local DB and UI state.
      */
     fun updateStudent(
         student: Student,
@@ -180,23 +241,53 @@ class StudentViewModel : ViewModel() {
         viewModelScope.launch {
             try {
                 _isLoading.value = true
-                Log.d("StudentViewModel", "Updating student with ID: ${student.id}, courseId: ${student.courseId}")
+                Log.d("StudentViewModel", "Updating student ID: ${student.id}")
+
+                if (!hasNetwork(context)) {
+                    onError("No internet connection")
+                    return@launch
+                }
 
                 val updatedStudent = RetrofitInstance.apiStudent.updateStudent(student.id, student)
 
-                // Update the local state
+                // Update local DB
+                studentDao.insertStudent(updatedStudent.toEntity())
+
+                // Update UI state list
                 _students.value = _students.value.map {
                     if (it.id == updatedStudent.id) updatedStudent else it
                 }
 
-                Log.i("StudentViewModel", "Successfully updated student with ID: ${updatedStudent.id}")
+                Log.i("StudentViewModel", "Student updated: ${updatedStudent.id}")
                 onSuccess()
             } catch (e: Exception) {
-                Log.e("StudentViewModel", "Error updating student: ${e.message}", e)
+                Log.e("StudentViewModel", "Error updating student: ${e.message}")
                 onError(e.message ?: "Unknown error")
             } finally {
                 _isLoading.value = false
             }
         }
     }
+
+    fun clearDataSource() {
+        _dataSource.value = null
+    }
+
+    // --- Extension helper functions to convert between Entity and Model ---
+
+    private fun StudentEntity.toStudent() = Student(
+        id = this.id,
+        name = this.name,
+        email = this.email,
+        phone = this.phone,
+        courseId = this.courseId
+    )
+
+    private fun Student.toEntity() = StudentEntity(
+        id = this.id!!, // Should be non-null after creation
+        name = this.name,
+        email = this.email,
+        phone = this.phone,
+        courseId = this.courseId
+    )
 }
