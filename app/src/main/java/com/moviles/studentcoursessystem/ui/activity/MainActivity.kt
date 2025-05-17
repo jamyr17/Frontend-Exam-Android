@@ -23,6 +23,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -32,6 +33,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.moviles.studentcoursessystem.common.Constants.IMAGES_BASE_URL
+import com.moviles.studentcoursessystem.common.Constants.validateCourseInput
 import com.moviles.studentcoursessystem.model.Course
 import com.moviles.studentcoursessystem.viewmodel.CourseViewModel
 
@@ -174,7 +176,7 @@ fun CourseManagementApp(viewModel: CourseViewModel) {
                 confirmButton = {
                     Button(
                         onClick = {
-                            viewModel.deleteEvent(selectedCourse?.id)
+                            viewModel.deleteCourse(selectedCourse?.id)
                             showDeleteDialog = false
                         }
                     ) {
@@ -345,6 +347,7 @@ fun CourseFormDialog(
     var currentImageUrl by remember { mutableStateOf(course?.imageUrl) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     val scrollState = rememberScrollState()
+    var errors by remember { mutableStateOf(mapOf<String, String?>()) }
 
     // Image picker launcher
     val imagePicker = rememberLauncherForActivityResult(
@@ -382,8 +385,11 @@ fun CourseFormDialog(
                     onValueChange = { name = it },
                     label = { Text("Nombre del Curso") },
                     modifier = Modifier.fillMaxWidth(),
-                    isError = name.isBlank() && errorMessage != null
+                    isError = errors["name"] != null
                 )
+                if (errors["name"] != null) {
+                    Text(text = errors["name"]!!, color = Color.Red)
+                }
 
                 OutlinedTextField(
                     value = description,
@@ -391,24 +397,33 @@ fun CourseFormDialog(
                     label = { Text("Descripción") },
                     modifier = Modifier.fillMaxWidth(),
                     minLines = 3,
-                    isError = description.isBlank() && errorMessage != null
+                    isError = errors["description"] != null
                 )
+                if (errors["description"] != null) {
+                    Text(text = errors["description"]!!, color = Color.Red)
+                }
 
                 OutlinedTextField(
                     value = schedule,
                     onValueChange = { schedule = it },
                     label = { Text("Horario") },
                     modifier = Modifier.fillMaxWidth(),
-                    isError = schedule.isBlank() && errorMessage != null
+                    isError = errors["schedule"] != null
                 )
+                if (errors["schedule"] != null) {
+                    Text(text = errors["schedule"]!!, color = Color.Red)
+                }
 
                 OutlinedTextField(
                     value = professor,
                     onValueChange = { professor = it },
                     label = { Text("Profesor") },
                     modifier = Modifier.fillMaxWidth(),
-                    isError = professor.isBlank() && errorMessage != null
+                    isError = errors["professor"] != null
                 )
+                if (errors["professor"] != null) {
+                    Text(text = errors["professor"]!!, color = Color.Red)
+                }
 
                 // Image section
                 Text(
@@ -464,7 +479,10 @@ fun CourseFormDialog(
         confirmButton = {
             Button(
                 onClick = {
-                    if (validateInputs(name, description, schedule, professor)) {
+                    val validation = validateCourseInput(name, description, schedule, professor)
+                    if (validation.values.any { it != null }) {
+                        errors = validation
+                    } else {
                         errorMessage = null
 
                         val newCourse = Course(
@@ -477,8 +495,6 @@ fun CourseFormDialog(
                         )
 
                         onSave(newCourse, imageUri)
-                    } else {
-                        errorMessage = "Por favor completa todos los campos requeridos"
                     }
                 }
             ) {
@@ -497,14 +513,4 @@ fun CourseFormDialog(
             }
         }
     )
-}
-
-private fun validateInputs(
-    name: String,
-    description: String,
-    schedule: String,
-    professor: String
-): Boolean {
-    return name.isNotBlank() && description.isNotBlank() &&
-            schedule.isNotBlank() && professor.isNotBlank()
 }

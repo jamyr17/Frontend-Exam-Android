@@ -22,12 +22,15 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.google.firebase.messaging.FirebaseMessaging
+import com.moviles.studentcoursessystem.common.Constants.validateCourseInput
+import com.moviles.studentcoursessystem.common.Constants.validateStudentInput
 import com.moviles.studentcoursessystem.model.Student
 import com.moviles.studentcoursessystem.viewmodel.StudentViewModel
 
@@ -147,7 +150,7 @@ fun StudentManagementScreen(
                     .padding(paddingValues),
                 contentAlignment = Alignment.Center
             ) {
-                Text("No hy estudiantes matriculados a este curso")
+                Text("No hay estudiantes matriculados a este curso")
             }
         } else {
             LazyColumn(
@@ -319,6 +322,7 @@ fun StudentFormDialog(
     var email by remember { mutableStateOf(student?.email ?: "") }
     var phone by remember { mutableStateOf(student?.phone ?: "") }
     var errorMessage by remember { mutableStateOf<String?>(null) }
+    var errors by remember { mutableStateOf(mapOf<String, String?>()) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -345,8 +349,11 @@ fun StudentFormDialog(
                     onValueChange = { name = it },
                     label = { Text("Nombre") },
                     modifier = Modifier.fillMaxWidth(),
-                    isError = name.isBlank() && errorMessage != null
+                    isError = errors["name"] != null
                 )
+                if (errors["name"] != null) {
+                    Text(text = errors["name"]!!, color = Color.Red)
+                }
 
                 OutlinedTextField(
                     value = email,
@@ -354,8 +361,11 @@ fun StudentFormDialog(
                     label = { Text("Correo") },
                     modifier = Modifier.fillMaxWidth(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                    isError = email.isBlank() && errorMessage != null
+                    isError = errors["email"] != null
                 )
+                if (errors["email"] != null) {
+                    Text(text = errors["email"]!!, color = Color.Red)
+                }
 
                 OutlinedTextField(
                     value = phone,
@@ -363,14 +373,20 @@ fun StudentFormDialog(
                     label = { Text("Número telefónico") },
                     modifier = Modifier.fillMaxWidth(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-                    isError = phone.isBlank() && errorMessage != null
+                    isError = errors["phone"] != null
                 )
+                if (errors["phone"] != null) {
+                    Text(text = errors["phone"]!!, color = Color.Red)
+                }
             }
         },
         confirmButton = {
             Button(
                 onClick = {
-                    if (validateStudentInputs(name, email, phone)) {
+                    val validation = validateStudentInput(name, email, phone, courseId)
+                    if (validation.values.any { it != null }) {
+                        errors = validation
+                    } else {
                         val updatedStudent = Student(
                             id = student?.id,
                             name = name.trim(),
@@ -379,8 +395,6 @@ fun StudentFormDialog(
                             courseId = courseId
                         )
                         onSave(updatedStudent)
-                    } else {
-                        errorMessage = "Por favor llenar todos los campos de manera correcta"
                     }
                 }
             ) {
@@ -399,18 +413,6 @@ fun StudentFormDialog(
             }
         }
     )
-}
-
-/**
- * Validates student form inputs
- */
-private fun validateStudentInputs(
-    name: String,
-    email: String,
-    phone: String
-): Boolean {
-    return name.isNotBlank() && email.isNotBlank() && phone.isNotBlank() &&
-            android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()
 }
 
 
