@@ -1,100 +1,83 @@
-Students: 
-- Jamel Sandí
-- Jamyr González
+# 📱 App Android - Gestión de Cursos y Estudiantes
 
-Intructiones:
+Esta es la aplicación móvil del sistema de gestión de cursos y estudiantes. Desarrollada en Kotlin utilizando Jetpack Compose y MVVM, permite consumir la API REST desarrollada en .NET. Recibe notificaciones push al registrar nuevos estudiantes.
 
-- First, perform a Sync Now on the Android project and verify that everything is installed correctly.
-- Second, build the project.
-- And third, check if we have a connected mobile device and launch the app.
+---
 
-The project has the following manifest permissions:
+## 🧰 Tecnologías y herramientas
 
-<uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
-<uses-permission android:name="android.permission.INTERNET" />
-<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+- Jetpack Compose (UI)
+- MVVM (Arquitectura)
+- Retrofit + OkHttp (consumo de API con caché)
+- Room (almacenamiento local)
+- Firebase Cloud Messaging (notificaciones push)
+- Kotlin
 
-The project uses the following activities:
+---
 
-<activity  
-    android:name=".MainActivity"  
-    android:exported="true"  
-    android:theme="@style/Theme.StudentCoursesSystem">  
-    <intent-filter>  
-        <action android:name="android.intent.action.MAIN" />  
-        <category android:name="android.intent.category.LAUNCHER" />  
-    </intent-filter>  
-</activity>  
+## ⚙️ Requisitos
 
-<activity  
-    android:name=".StudentsActivity"  
-    android:exported="false"  
-    android:parentActivityName=".MainActivity">  
-    <meta-data  
-        android:name="android.support.PARENT_ACTIVITY"  
-        android:value=".MainActivity" />  
-</activity>  
+- Android Studio
+- Emulador o dispositivo físico con Android 8+
+- API REST corriendo local o remotamente
 
-<activity  
-    android:name=".StudentDetailActivity"  
-    android:exported="false"  
-    android:parentActivityName=".StudentsActivity">  
-    <meta-data  
-        android:name="android.support.PARENT_ACTIVITY"  
-        android:value=".StudentsActivity" />  
-</activity>
+---
 
-The project uses the following service for Firebase Messaging:
+## 🚀 Configuración del proyecto
 
-<service  
-    android:name=".services.MessagingService"  
-    android:exported="false">  
-    <intent-filter>  
-        <action android:name="com.google.firebase.MESSAGING_EVENT" />  
-    </intent-filter>  
-</service>
+1. Clona el repositorio:
 
-The project uses the following plugin in build.gradle.kts:
+   ```bash
+   git clone https://github.com/jamyr17/Frontend-Exam-Android
+   ```
 
-// Google Services Plugin  
-id("com.google.gms.google-services") version "4.4.2" apply false
+2. Abre el proyecto en Android Studio.
 
-The project includes the following libraries:
+3. Ejecuta el proyecto en un emulador o dispositivo físico.
 
-dependencies {  
-    implementation("io.coil-kt:coil-compose:2.5.0") {  
-        exclude(group = "org.jetbrains", module = "annotations")  
-    }  
+---
 
-    implementation(libs.androidx.core.ktx)  
-    implementation(libs.androidx.lifecycle.runtime.ktx)  
-    implementation(libs.androidx.activity.compose)  
-    implementation(platform(libs.androidx.compose.bom))  
-    implementation(libs.androidx.ui)  
-    implementation(libs.androidx.ui.graphics)  
-    implementation(libs.androidx.ui.tooling.preview)  
-    implementation(libs.androidx.material3)  
-    implementation(libs.retrofit)  
-    implementation(libs.converter.gson)  
-    implementation(libs.androidx.lifecycle.viewmodel.compose)  
-    implementation(libs.androidx.appcompat)  
-    implementation("androidx.compose.material:material-icons-extended:1.6.0")  
-    implementation("androidx.compose.material3:material3:1.1.0")  
-    implementation("androidx.compose.material:material-icons-extended:1.5.0")  
+## ✨ Funcionalidades
 
-    implementation("com.squareup.okhttp3:logging-interceptor:4.10.0")  
+### 📋 Lista de Cursos (MainActivity)
 
-    // Firebase  
-    implementation(platform("com.google.firebase:firebase-bom:33.12.0"))  
-    implementation("com.google.firebase:firebase-messaging:24.1.1")  
-    implementation("com.google.firebase:firebase-analytics:22.4.0")  
+- Mostrar cursos con nombre, descripción, imagen, horario y profesor.
+- Crear, editar y eliminar cursos.
+- Funciona offline gracias a Room.
+- Alerta visual si los datos vienen de Room o caché (OkHttp).
 
-    testImplementation(libs.junit)  
-    androidTestImplementation(libs.androidx.junit)  
-    androidTestImplementation(libs.androidx.espresso.core)  
-    androidTestImplementation(platform(libs.androidx.compose.bom))  
-    androidTestImplementation(libs.androidx.ui.test.junit4)  
-    debugImplementation(libs.androidx.ui.tooling)  
-    debugImplementation(libs.androidx.ui.test.manifest)  
-}
+### 👨‍🎓 Estudiantes por Curso (StudentsActivity)
+
+- Mostrar estudiantes inscritos en un curso.
+- Crear, editar y eliminar estudiantes.
+- Recibir notificación push (FCM) al registrar un nuevo estudiante.
+- Funcionalidad offline con Room y caché.
+
+### 🧑 Perfil del Estudiante (StudentDetailActivity)
+
+- Mostrar todos los datos del estudiante y el curso asociado.
+- Funciona sin conexión y alerta la fuente de datos (local/caché).
+
+---
+
+## 🔔 Notificaciones Push
+
+La app recibe notificaciones FCM al registrar un nuevo estudiante:
+
+```
+Estudiante: [nombre del estudiante], se ha inscrito al curso: [nombre del curso]
+```
+
+---
+
+## 🧪 Validaciones
+
+- Las reglas de validación del cliente están sincronizadas con las del backend.
+- Se evita enviar datos inválidos a la API.
+
+---
+
+## 🧑‍💻 Autor
+
+- [Jamyr González] – [GitHub](https://github.com/jamyr17)
+- [Jamel Sandí] – [GitHub](https://github.com/Jamel-sanderson)
