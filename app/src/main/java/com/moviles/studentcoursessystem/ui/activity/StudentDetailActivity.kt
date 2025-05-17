@@ -1,4 +1,4 @@
-package com.moviles.studentcoursessystem
+package com.moviles.studentcoursessystem.ui.activity
 
 import android.os.Bundle
 import android.util.Log
@@ -15,7 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.moviles.studentcoursessystem.models.Student
+import com.moviles.studentcoursessystem.model.Student
 import com.moviles.studentcoursessystem.viewmodel.StudentViewModel
 
 class StudentDetailActivity : ComponentActivity() {
@@ -65,6 +65,18 @@ fun StudentDetailScreen(
     val isLoading by viewModel.isLoading.collectAsState()
     val courseName by viewModel.courseName.collectAsState()
 
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    // Detectar cambios de fuente de datos (CACHE o API)
+    LaunchedEffect(Unit) {
+        viewModel.dataSource.collect { source ->
+            source?.let {
+                snackbarHostState.showSnackbar("Datos cargados desde: $it")
+                viewModel.clearDataSource()
+            }
+        }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -79,7 +91,8 @@ fun StudentDetailScreen(
                     titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
                 )
             )
-        }
+        },
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
     ) { paddingValues ->
         if (isLoading) {
             Box(

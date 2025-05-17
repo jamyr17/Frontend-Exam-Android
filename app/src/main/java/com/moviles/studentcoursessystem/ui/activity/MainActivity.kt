@@ -1,11 +1,7 @@
-package com.moviles.studentcoursessystem
+package com.moviles.studentcoursessystem.ui.activity
 
-import android.app.NotificationChannel
-import android.app.NotificationManager
-import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
@@ -34,10 +30,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
-import coil.compose.SubcomposeAsyncImage
 import coil.request.ImageRequest
 import com.moviles.studentcoursessystem.common.Constants.IMAGES_BASE_URL
-import com.moviles.studentcoursessystem.models.Course
+import com.moviles.studentcoursessystem.model.Course
 import com.moviles.studentcoursessystem.viewmodel.CourseViewModel
 
 class MainActivity : ComponentActivity() {
@@ -66,6 +61,18 @@ fun CourseManagementApp(viewModel: CourseViewModel) {
     var showEditDialog by remember { mutableStateOf(false) }
     var selectedCourse by remember { mutableStateOf<Course?>(null) }
 
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    // Detectar cambios de fuente de datos (CACHE o API)
+    LaunchedEffect(Unit) {
+        viewModel.dataSource.collect { source ->
+            source?.let {
+                snackbarHostState.showSnackbar("Datos cargados desde: $it")
+                viewModel.clearDataSource()
+            }
+        }
+    }
+
     // Fetch courses when entering the screen
     LaunchedEffect(Unit) {
         viewModel.fetchCourses()
@@ -91,6 +98,9 @@ fun CourseManagementApp(viewModel: CourseViewModel) {
             ) {
                 Icon(Icons.Filled.Add, contentDescription = "Agregar Curso")
             }
+        },
+        snackbarHost = {
+            SnackbarHost(hostState = snackbarHostState)
         }
     ) { paddingValues ->
         if (isLoading) {
@@ -214,15 +224,19 @@ fun CourseManagementApp(viewModel: CourseViewModel) {
                         }
                     } else {
                         // Update existing course
-                        viewModel.updateCourse(
-                            course = course,
-                            onSuccess = {
-                                showEditDialog = false
-                            },
-                            onError = { error ->
-                                Log.e("MainActivity", "Error updating course: $error")
-                            }
-                        )
+                        if (imageUri != null) {
+                            viewModel.updateCourse(
+                                course = course,
+                                imageUri = imageUri,
+                                context = context,
+                                onSuccess = {
+                                    showEditDialog = false
+                                },
+                                onError = { error ->
+                                    Log.e("MainActivity", "Error updating course: $error")
+                                }
+                            )
+                        }
                     }
                 }
             )
@@ -330,7 +344,6 @@ fun CourseFormDialog(
     var imageUri by remember { mutableStateOf<Uri?>(null) }
     var currentImageUrl by remember { mutableStateOf(course?.imageUrl) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
-    val context = LocalContext.current
     val scrollState = rememberScrollState()
 
     // Image picker launcher
