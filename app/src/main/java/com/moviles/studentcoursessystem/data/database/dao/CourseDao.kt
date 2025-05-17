@@ -33,4 +33,10 @@ interface CourseDao {
      */
     @Query("DELETE FROM courses")
     suspend fun deleteAllCourses()
+
+    /**
+     * Deletes just 1 course from the local database.
+     */
+    @Query("DELETE FROM courses WHERE id = :courseId")
+    suspend fun deleteCourse(courseId: Int?)
 }

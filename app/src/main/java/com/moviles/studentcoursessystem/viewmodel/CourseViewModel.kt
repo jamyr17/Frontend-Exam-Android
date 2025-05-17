@@ -97,29 +97,22 @@ class CourseViewModel(application: Application) : AndroidViewModel(application) 
     /**
      * Deletes a course from the remote API and then from local Room database.
      */
-    fun deleteEvent(courseId: Int?) {
+    fun deleteCourse(courseId: Int?) {
         courseId?.let { id ->
             viewModelScope.launch {
                 try {
                     _isLoading.value = true
-                    val response = RetrofitInstance.apiCourse.deleteCourse(id)
+                    val response = if (hasNetwork(context)) {
+                        RetrofitInstance.apiCourse.deleteCourse(courseId)
+                    } else {
+                        null // No network, skip remote delete
+                    }
 
-                    if (response.isSuccessful) {
+                    if (response?.isSuccessful == true || response == null) {
                         // Remove from Room and UI state
-                        courseDao.deleteAllCourses() // Optional: should be delete by ID ideally
-                        val updatedList = courseDao.getAllCourses()
-                            .filterNot { it.id == id }
-                        courseDao.insertCourses(updatedList)
-                        _courses.value = updatedList.map {
-                            Course(
-                                id = it.id,
-                                name = it.name,
-                                description = it.description,
-                                imageUrl = it.imageUrl,
-                                schedule = it.schedule,
-                                professor = it.professor
-                            )
-                        }
+
+                        courseDao.deleteCourse(courseId)
+                        _courses.value = _courses.value.filter { it.id != courseId }
                         Log.i("CourseViewModel", "Successfully deleted course with ID: $id")
                     } else {
                         Log.e("CourseViewModel", "Error deleting course: ${response.code()}")
